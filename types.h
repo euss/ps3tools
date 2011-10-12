@@ -84,7 +84,30 @@ struct key {
 struct keylist {
 	u32 n;
 	struct key *keys;
+    struct key *idps;
+    struct key *klic;
+    struct key *rif;
+    struct key *npdrm_const;
+    struct key *free_klicensee;
 };
+
+struct rif {
+    u8 unk1[0x10]; //version, license type and user number
+    u8 titleid[0x30]; //Content ID
+    u8 padding[0xC]; //Padding for randomness
+    u32 actDatIndex; //Key index on act.dat between 0x00 and 0x7F
+    u8 key[0x10]; //encrypted klicensee
+    u64 unk2; //timestamp??
+    u64 unk3; //Always 0
+    u8 rs[0x28];
+} __attribute__ ((packed));
+
+struct actdat {
+    u8 unk1[0x10]; //Version, User number
+    u8 keyTable[0x800]; //Key Table
+    u8 unk2[0x800];
+    u8 signature[0x28];
+} __attribute__ ((packed));
 
 static inline u8 be8(u8 *p)
 {

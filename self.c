@@ -13,6 +13,12 @@
 static struct keylist *load_keys(APP_INFO *app_info);
 static int decrypt_metadata(uint8_t *metadata, uint32_t metadata_size,
     struct keylist *klist);
+static int remove_npdrm(SELF *self, CONTROL_INFO *control_info, uint8_t *metadata,
+    struct keylist *klist);
+static void decrypt_npdrm(uint8_t *metadata, struct keylist *klist,
+    struct key *klicensee);
+
+
 
 
 void
@@ -166,6 +172,9 @@ self_read_headers(FILE *in, SELF *self, APP_INFO *app_info, ELF *elf,
       if (info[index].type == 1)
         info[index].control_flags.control_flags =
             swap64 (info[index].control_flags.control_flags);
+      if (info[index].type == 3)
+        info[index].npdrm.license_type =
+            swap32 (info[index].npdrm.license_type);
 
       offset += info[index].size;
       index++;
@@ -219,7 +228,7 @@ void
 self_read_metadata (FILE *in, SELF *self, APP_INFO *app_info,
     METADATA_INFO *metadata_info, METADATA_HEADER *metadata_header,
     METADATA_SECTION_HEADER **section_headers, uint8_t **keys,
-    SIGNATURE_INFO *signature_info, SIGNATURE *signature)
+    SIGNATURE_INFO *signature_info, SIGNATURE *signature, CONTROL_INFO *control_info)
 {
   uint8_t *metadata = NULL;
   uint32_t metadata_size = self->header_len - self->metadata_offset - 0x20;
@@ -239,6 +248,9 @@ self_read_metadata (FILE *in, SELF *self, APP_INFO *app_info,
     klist = load_keys(app_info);
     if (klist == NULL)
       ERROR(-5, "no key found");
+
+    if (remove_npdrm (self, control_info, metadata, klist) < 0)
+      ERROR (-5, "Error removing NPDRM");
 
     if (decrypt_metadata (metadata, metadata_size, klist) < 0)
       ERROR (-5, "Error decrypting metadata");
@@ -405,6 +417,9 @@ load_keys(APP_INFO *app_info)
     case 6:
       id = KEY_LDR;
       break;
+    case 8:
+      id = KEY_NPDRM;
+      break;
     default:
       fprintf (stderr, "SELF type is invalid : 0x%08X\n", app_info->self_type);
       exit (-4);
@@ -413,6 +428,66 @@ load_keys(APP_INFO *app_info)
   return keys_get(id);
 }
 
+static int
+remove_npdrm(SELF *self, CONTROL_INFO *control_info, uint8_t *metadata, struct keylist *klist)
+{
+    CONTROL_INFO *info;
+    u32 license_type;
+    char content_id[0x31] = {'\0'};
+    struct rif *rif;
+    struct actdat *actdat;
+    u8 enc_const[0x10];
+    u8 dec_actdat[0x10];
+    struct key klicensee;
+    int i;
+    u64 off;
+
+    for (i = off = 0; off < self->controlinfo_size; i++) {
+        info = &control_info[i];
+        if (info->type == 3) {
+            license_type = info->npdrm.license_type;
+            switch (license_type) {
+                case 1:
+                    // cant decrypt network stuff
+                    return -1;
+                case 2:
+                    memcpy(content_id, info->npdrm.content_id, 0x30);
+                    rif = rif_get(content_id);
+                    if (rif == NULL) {
+                        return -1;
+                    }
+                    aes128(klist->rif->key, rif->padding, rif->padding);
+                    aes128_enc(klist->idps->key, klist->npdrm_const->key, enc_const);
+                    actdat = actdat_get();
+                    if (actdat == NULL) {
+                        return -1;
+                    }
+                    aes128(enc_const, &actdat->keyTable[swap32(rif->actDatIndex)*0x10], dec_actdat);
+                    aes128(dec_actdat, rif->key, klicensee.key);
+                    decrypt_npdrm(metadata, klist, &klicensee);
+                    return 1;
+                case 3:
+                    decrypt_npdrm(metadata, klist, klist->free_klicensee);
+                    return 1;
+            }
+        }
+
+        off += info->size;
+    }
+    return 0;
+}
+
+static void
+decrypt_npdrm(uint8_t *metadata, struct keylist *klist, struct key *klicensee)
+{
+    struct key d_klic;
+
+    // iv is 0
+    memset(&d_klic, 0, sizeof(struct key));
+    aes128(klist->klic->key, klicensee->key, d_klic.key);
+
+    aes128cbc(d_klic.key, d_klic.iv, metadata, 0x40, metadata);
+}
 
 static int
 decrypt_metadata(uint8_t *metadata, uint32_t metadata_size,
@@ -422,7 +497,6 @@ decrypt_metadata(uint8_t *metadata, uint32_t metadata_size,
   METADATA_INFO metadata_info;
   uint8_t zero[16] = {0};
 
-  memset (zero, 0, 16);
   for (i = 0; i < klist->n; i++) {
     aes256cbc(klist->keys[i].key,  klist->keys[i].iv,
         metadata, sizeof(METADATA_INFO), (uint8_t *) &metadata_info);

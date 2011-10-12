@@ -46,6 +46,8 @@ bin_PROGRAMS = 	sceverify \
 		eidsplitr \
 		spp
 
+bin_SCRIPTS = pupexplode
+
 if HAVE_LIBGMP
     bin_PROGRAMS += scekrit
 endif

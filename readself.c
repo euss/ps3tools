@@ -142,8 +142,8 @@ static void parse_self(void)
 static struct keylist *self_load_keys(void)
 {
 	enum sce_key id;
-
-	switch (app_type) {
+	
+    switch (app_type) {
 		case 1:
 			id = KEY_LV0;
 			break;
@@ -163,7 +163,7 @@ static struct keylist *self_load_keys(void)
 			id = KEY_LDR;
 			break;
 		case 8:
-			return NULL;
+			id = KEY_NPDRM;
 			break;
 		default:
 			fail("invalid type: %08x", app_type);	
@@ -180,7 +180,8 @@ static void decrypt_header(void)
 	if (klist == NULL)
 		return;
 
-	decrypted = sce_decrypt_header(self, klist);
+    sce_remove_npdrm(self, klist);
+    decrypted = sce_decrypt_header(self, klist);
 	free(klist->keys);
 	free(klist);
 }
@@ -216,13 +217,6 @@ static void show_self_header(void)
 
 	printf("\n");
 }
-
-static void print_hash(u8 *ptr, u32 len)
-{
-	while(len--)
-		printf(" %02x", *ptr++);
-}
-
 
 static void show_ctrl(void)
 {
@@ -365,14 +359,14 @@ static void show_meta(void)
 	printf("\n");
 
 	printf("  Sections\n");
-	printf("    Offset            Length            Key IV  SHA1\n");
+	printf("    Offset            Length            Key IV  SHA1 Type\n");
 	for (i = 0; i < meta_n_hdr; i++) {
 		tmp = self + meta_offset + 0x80 + 0x30*i;
 		offset = be64(tmp);
 		size = be64(tmp + 8);
-		printf("    %08x_%08x %08x_%08x %03d %03d %03d\n",
+		printf("    %08x_%08x %08x_%08x %03d %03d %03d  %4d\n",
 		       (u32)(offset >> 32), (u32)offset, (u32)(size >> 32), (u32)size,
-		       be32(tmp + 0x24), be32(tmp + 0x28), be32(tmp + 0x1c));
+		       be32(tmp + 0x24), be32(tmp + 0x28), be32(tmp + 0x1c), be32(tmp + 0x10));
 	}
 	printf("\n");
 

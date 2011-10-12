@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 
   self_read_metadata (in, &self, &app_info, &metadata_info,
       &metadata_header, &section_headers,  &keys,
-      &signature_info, &signature);
+      &signature_info, &signature, control_info);
 
   num_sections = self_load_sections (in, &self, &elf, &phdr,
       &metadata_header, &section_headers, &keys, &sections);

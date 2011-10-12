@@ -182,7 +182,7 @@ static struct keylist *self_load_keys(void)
 			return NULL;
 			break;
 		case 8:
-			return NULL;
+			id = KEY_NPDRM;
 			break;
 		default:
 			fail("invalid type: %08x", app_type);	
@@ -194,12 +194,6 @@ static struct keylist *self_load_keys(void)
 static const char *get_auth_type(void)
 {
 	return "UnknownAuthIdType";
-}
-
-static void print_hash(u8 *ptr, u32 len)
-{
-	while(len--)
-		printf(" %02x", *ptr++);
 }
 
 static void get_flags(u32 flags, char *ptr)
@@ -268,6 +262,7 @@ static void decrypt_header(void)
 	if (klist == NULL)
 		return;
 
+    sce_remove_npdrm(self, klist);
 	decrypted = sce_decrypt_header(self, klist);
 	free(klist->keys);
 	free(klist);
@@ -988,6 +983,10 @@ static void show_meta(void)
 		        (u16)((meta_offset + 0x80 + 0x30*i) + 0x1c),
 		        be32(tmp + 0x1c)
 		      );
+        printf("      Type:        %04x = %04x\n",
+                (u16)((meta_offset + 0x80 + 0x30*i) + 0x10),
+                be32(tmp + 0x10)
+              );
 	}
 	printf("\n");
 

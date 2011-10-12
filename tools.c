@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <zlib.h>
 #include <dirent.h>
+#include <assert.h>
 
 #ifdef WIN32
 #include "mingw_mmap.h"
@@ -25,6 +26,7 @@
 #include "tools.h"
 #include "aes.h"
 #include "sha1.h"
+#include "common.h"
 
 static struct id2name_tbl t_key2file[] = {
         {KEY_LV0, "lv0"},
@@ -35,12 +37,19 @@ static struct id2name_tbl t_key2file[] = {
         {KEY_LDR, "ldr"},
         {KEY_PKG, "pkg"},
         {KEY_SPP, "spp"},
+        {KEY_NPDRM, "app"},
         {0, NULL}
 };
 
 //
 // misc
 //
+
+void print_hash(u8 *ptr, u32 len)
+{
+	while(len--)
+		printf(" %02x", *ptr++);
+}
 
 void *mmap_file(const char *path)
 {
@@ -405,6 +414,21 @@ void aes128ctr(u8 *key, u8 *iv, u8 *in, u64 len, u8 *out)
 	}
 }
 
+void aes128(u8 *key, const u8 *in, u8 *out) {
+    AES_KEY k;
+
+    assert(!AES_set_decrypt_key(key, 128, &k));
+    AES_decrypt(in, out, &k);
+}
+
+void aes128_enc(u8 *key, const u8 *in, u8 *out) {
+    AES_KEY k;
+
+    assert(!AES_set_encrypt_key(key, 128, &k));
+    AES_encrypt(in, out, &k);
+}
+
+
 
 // FIXME: use a non-broken sha1.c *sigh*
 static void sha1_fixup(struct SHA1Context *ctx, u8 *digest)
@@ -588,6 +612,48 @@ struct keylist *keys_get(enum sce_key type)
 		}
 	}
 
+    if (type == KEY_NPDRM) {
+        klist->idps = calloc(sizeof(struct key), 1);
+        if (klist->idps == NULL)
+            goto fail;
+        snprintf(path, sizeof path, "%s/idps", base);
+        if (key_read(path, 16, klist->idps->key) != 0) {
+            printf("  key file:   %s (ERROR)\n", path);
+        }
+
+        klist->klic = calloc(sizeof(struct key), 1);
+        if (klist->klic == NULL)
+            goto fail;
+        snprintf(path, sizeof path, "%s/klic-key", base);
+        if (key_read(path, 16, klist->klic->key) != 0) {
+            printf("  key file:   %s (ERROR)\n", path);
+        }
+
+        klist->rif = calloc(sizeof(struct key), 1);
+        if (klist->rif == NULL)
+            goto fail;
+        snprintf(path, sizeof path, "%s/rif-key", base);
+        if (key_read(path, 16, klist->rif->key) != 0) {
+            printf("  key file:   %s (ERROR)\n", path);
+        }
+
+        klist->npdrm_const = calloc(sizeof(struct key), 1);
+        if (klist->npdrm_const == NULL)
+            goto fail;
+        snprintf(path, sizeof path, "%s/npdrm-const", base);
+        if (key_read(path, 16, klist->npdrm_const->key) != 0) {
+            printf("  key file:   %s (ERROR)\n", path);
+        }
+
+        klist->free_klicensee = calloc(sizeof(struct key), 1);
+        if (klist->free_klicensee == NULL)
+            goto fail;
+        snprintf(path, sizeof path, "%s/free_klicensee-key", base);
+        if (key_read(path, 16, klist->free_klicensee->key) != 0) {
+            printf("  key file:   %s (ERROR)\n", path);
+        }
+    }
+
 	return klist;
 
 fail:
@@ -692,6 +758,76 @@ int key_get(enum sce_key type, const char *suffix, struct key *k)
 	return 0;
 }
 
+struct rif *rif_get(const char *content_id) {
+	char base[256];
+	char path[256];
+    struct rif *rif;
+    FILE *fp;
+    u32 read;
+	
+    rif = malloc(sizeof(struct rif));
+	if (rif == NULL)
+		goto fail;
+
+	if (key_build_path(base) < 0)
+		goto fail;
+
+    snprintf(path, sizeof path, "%s/exdata/%s.rif", base, content_id);
+
+    fp = fopen(path, "rb");
+    if (fp == NULL)
+        goto fail;
+
+    read = fread(rif, sizeof(struct rif), 1, fp);
+
+    if (read != 1)
+        goto fail;
+
+    return rif;
+
+fail:
+	if (rif != NULL) {
+		free(rif);
+	}
+
+	return NULL; 
+}
+
+struct actdat *actdat_get(void) {
+	char base[256];
+	char path[256];
+    struct actdat *actdat;
+    FILE *fp;
+    u32 read;
+	
+    actdat = malloc(sizeof(struct actdat));
+	if (actdat == NULL)
+		goto fail;
+
+	if (key_build_path(base) < 0)
+		goto fail;
+
+    snprintf(path, sizeof path, "%s/exdata/act.dat", base);
+
+    fp = fopen(path, "rb");
+    if (fp == NULL)
+        goto fail;
+
+    read = fread(actdat, sizeof(struct actdat), 1, fp);
+
+    if (read != 1)
+        goto fail;
+
+    return actdat;
+
+fail:
+	if (actdat != NULL) {
+		free(actdat);
+	}
+
+	return NULL; 
+}
+
 static void memcpy_inv(u8 *dst, u8 *src, u32 len)
 {
 	u32 j;
@@ -728,6 +864,77 @@ int ecdsa_get_params(u32 type, u8 *p, u8 *a, u8 *b, u8 *N, u8 *Gx, u8 *Gy)
 
 	return 0;
 }
+
+int sce_remove_npdrm(u8 *ptr, struct keylist *klist)
+{
+    u64 ctrl_offset;
+    u64 ctrl_size;
+    u32 block_type;
+    u32 block_size;
+    u32 license_type;
+    char content_id[0x31] = {'\0'};
+    struct rif *rif;
+    struct actdat *actdat;
+    u8 enc_const[0x10];
+    u8 dec_actdat[0x10];
+    struct key klicensee;
+    u64 i;
+
+    ctrl_offset = be64(ptr + 0x58);
+    ctrl_size = be64(ptr + 0x60);
+
+    for (i = 0; i < ctrl_size; ) {
+        block_type = be32(ptr + ctrl_offset + i);
+        block_size = be32(ptr + ctrl_offset + i + 0x4);
+
+        if (block_type == 3) {
+            license_type = be32(ptr + ctrl_offset + i + 0x18);
+            switch (license_type) {
+                case 1:
+                    // cant decrypt network stuff
+                    return -1;
+                case 2:
+                    memcpy(content_id, ptr + ctrl_offset + i + 0x20, 0x30);
+                    rif = rif_get(content_id);
+                    if (rif == NULL) {
+                        return -1;
+                    }
+                    aes128(klist->rif->key, rif->padding, rif->padding);
+                    aes128_enc(klist->idps->key, klist->npdrm_const->key, enc_const);
+                    actdat = actdat_get();
+                    if (actdat == NULL) {
+                        return -1;
+                    }
+                    aes128(enc_const, &actdat->keyTable[swap32(rif->actDatIndex)*0x10], dec_actdat);
+                    aes128(dec_actdat, rif->key, klicensee.key);
+                    sce_decrypt_npdrm(ptr, klist, &klicensee);
+                    return 1;
+                case 3:
+                    sce_decrypt_npdrm(ptr, klist, klist->free_klicensee);
+                    return 1;
+            }
+        }
+
+        i += block_size;
+    }
+
+    return 0;
+}
+
+void sce_decrypt_npdrm(u8 *ptr, struct keylist *klist, struct key *klicensee)
+{
+	u32 meta_offset;
+    struct key d_klic;
+
+	meta_offset = be32(ptr + 0x0c);
+
+    // iv is 0
+    memset(&d_klic, 0, sizeof(struct key));
+    aes128(klist->klic->key, klicensee->key, d_klic.key);
+
+    aes128cbc(d_klic.key, d_klic.iv, ptr + meta_offset + 0x20, 0x40, ptr + meta_offset + 0x20);
+}
+
 
 int sce_decrypt_header(u8 *ptr, struct keylist *klist)
 {

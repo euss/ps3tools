@@ -113,6 +113,20 @@ typedef struct {
       uint8_t digest2[20];
       uint8_t padding[8];
     } file_digest;
+
+    struct {
+        uint32_t unknown1;
+        uint32_t unknown2;
+        uint32_t magic;
+        uint32_t unknown3;
+        uint32_t license_type;
+        uint32_t type;
+        uint8_t content_id[0x30];
+        uint8_t hash[0x10];
+        uint8_t hash_iv[0x10];
+        uint8_t hash_xor[0x10];
+        uint8_t padding[0x10];
+    } npdrm;
   };
 } __attribute__((packed)) CONTROL_INFO;
 
@@ -186,7 +200,7 @@ void self_read_headers(FILE *in, SELF *self, APP_INFO *app_info, ELF *elf,
 void self_read_metadata (FILE *in, SELF *self, APP_INFO *app_info,
     METADATA_INFO *metadata_info, METADATA_HEADER *metadata_header,
     METADATA_SECTION_HEADER **section_headers, uint8_t **keys,
-    SIGNATURE_INFO *signature_info, SIGNATURE *signature);
+    SIGNATURE_INFO *signature_info, SIGNATURE *signature, CONTROL_INFO *control_info);
 
 int self_load_sections (FILE *in, SELF *self, ELF *elf, ELF_PHDR **phdr,
     METADATA_HEADER *metadata_header, METADATA_SECTION_HEADER **section_headers,

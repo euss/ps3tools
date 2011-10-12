@@ -17,9 +17,11 @@ enum sce_key {
 	KEY_ISO,
 	KEY_LDR,
 	KEY_PKG,
-	KEY_SPP
+	KEY_SPP,
+    KEY_NPDRM
 };
 
+void print_hash(u8 *ptr, u32 len);
 void *mmap_file(const char *path);
 void memcpy_to_file(const char *fname, u8 *ptr, u64 size);
 const char *id2name(u32 id, struct id2name_tbl *t, const char *unk);
@@ -37,6 +39,8 @@ void aes256cbc_enc(u8 *key, u8 *iv, u8 *in, u64 len, u8 *out);
 void aes128ctr(u8 *key, u8 *iv, u8 *in, u64 len, u8 *out);
 void aes128cbc(u8 *key, u8 *iv_in, u8 *in, u64 len, u8 *out);
 void aes128cbc_enc(u8 *key, u8 *iv, u8 *in, u64 len, u8 *out);
+void aes128(u8 *key, const u8 *in, u8 *out);
+void aes128_enc(u8 *key, const u8 *in, u8 *out);
 
 void sha1(u8 *data, u32 len, u8 *digest);
 void sha1_hmac(u8 *key, u8 *data, u32 len, u8 *digest);
@@ -44,6 +48,12 @@ void sha1_hmac(u8 *key, u8 *data, u32 len, u8 *digest);
 int key_get(enum sce_key type, const char *suffix, struct key *k);
 int key_get_simple(const char *name, u8 *bfr, u32 len);
 struct keylist *keys_get(enum sce_key type);
+
+struct rif *rif_get(const char *content_id);
+struct actdat *actdat_get(void);
+
+int sce_remove_npdrm(u8 *ptr, struct keylist *klist);
+void sce_decrypt_npdrm(u8 *ptr, struct keylist *klist, struct key *klicensee);
 
 int sce_decrypt_header(u8 *ptr, struct keylist *klist);
 int sce_encrypt_header(u8 *ptr, struct key *k);

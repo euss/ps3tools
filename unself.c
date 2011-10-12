@@ -325,6 +325,9 @@ static struct keylist *self_load_keys(void)
 		case 6:
 			id = KEY_LDR;
 			break;
+        case 8:
+            id = KEY_NPDRM;
+            break;
 		default:
 			fail("invalid type: %08x", app_type);
 	}
@@ -339,6 +342,9 @@ static void self_decrypt(void)
 	klist = self_load_keys();
 	if (klist == NULL)
 		fail("no key found");
+
+    if (sce_remove_npdrm(self, klist) < 0)
+        fail("self_remove_npdrm failed");
 
 	if (sce_decrypt_header(self, klist) < 0)
 		fail("self_decrypt_header failed");
