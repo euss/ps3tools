@@ -42,14 +42,6 @@ struct id2name_tbl t_sdk_type[] = {
 	{0, "Retail (Type 0)"},
 	{1, "Retail"},
 	{2, "Retail (Type 1)"},
-	{0x8000, "Devkit"},
-	{0, NULL}
-};
-
-struct id2name_tbl t_app_type[] = {
-	{0, "Retail (Type 0)"},
-	{1, "Retail"},
-	{2, "Retail (Type 1)"},
 	{3, "Unknown SDK3"},
 	{4, "Retail >=3.40"},
 	{5, "Unknown SDK5"},
@@ -73,6 +65,17 @@ struct id2name_tbl t_app_type[] = {
 	{14, "Unknown SDK23"},
 	{15, "Unknown SDK24"},
 	{0x8000, "Devkit"},
+	{0, NULL}
+};
+
+struct id2name_tbl t_app_type[] = {
+	{1, "level 0"},
+	{2, "level 1"},
+	{3, "level 2"},
+	{4, "application"},
+	{5, "isolated SPU module"},
+	{6, "secure loader"},
+	{8, "NP-DRM application"},
 	{0, NULL}
 };
 
