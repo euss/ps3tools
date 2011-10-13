@@ -1,5 +1,5 @@
 Based off of gitbrew's 215d8903bc86539ca1da53519e2ac10eeafc4c27
-ps3tools. .git folder not included to protect senstive info about the author.
+ps3tools. .git folder not included to protect sensitive info about the author.
 Sorry about the fucked up tabs, TAB = 4 SPACES 4 LYFE!!!
 Add the files in the npdrm_keystuff folder to your ps3 keys folder. Create a
 file with your console's 16 byte IDPS in the 'idps' file in your ps3 keys
@@ -31,5 +31,28 @@ euss for his endless hours of work on the wiki
 <drama>
 Why didn't you beat me to the punch, Team PS360? I didn't need to reverse a
 single instruction! It isn't that hard...
+</drama>
+
+
+v3 info:
+unself2 now ignores metadata sections of type 3 instead of aborting. Additional
+help with any remaining bugs would be greatly appreciated.
+
+I'm sorry if everyone got the impression that these unself/readself
+modifications can, by themselves, "reactivate" your NPDRM content. These are
+just the first steps in the process. To those who say this is useless because
+you need act.dat and rif files: unless you can get unencrypted (debug) or
+easily decrypted (free, demos) PSN content, the only way to get the unencrypted
+files is by decrypting it with act.dat and the content's rif file.  There are
+no "crypto fails" here, proper decryption with the true keys is the only way
+forward. Using the NPDRM algo with the right keys is the only way to decrypt
+unless you let GameOS do it for you and hook into GameOS to either grab
+intermediate keys or dump decrypted content. Using hacks to restore the NPDRM
+decryption info to jailbroken PS3s is only a partial fix. For instance, unless
+you patch vsh or set the SRTC to some time in the past, some content (even
+non-demos and non-trials!) expires until you log into PSN and reauthenticate.
+
+<drama>
+Sorry about your "technical difficulties", Team PS360. You should L2IRC.
 </drama>
 

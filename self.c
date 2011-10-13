@@ -353,7 +353,8 @@ self_load_sections (FILE *in, SELF *self, ELF *elf, ELF_PHDR **phdr,
         size = (*section_headers)[i-1].data_size;
         (*sections)[i].offset = elf->shdr_offset;
       } else {
-        fail ("Unknown section type");
+        (*sections)[i].offset = UINT64_MAX;
+        printf("Section %d unkown type: %d. Skipping!\n", i, hdr->type);
       }
 
       (*sections)[i].size = size;

@@ -62,6 +62,9 @@ int main(int argc, char *argv[])
   }
 
   for (i = 0; i < num_sections; i++) {
+    if (sections[i].offset == UINT64_MAX) {
+        continue;
+    }
     fseek (out, sections[i].offset, SEEK_SET);
     if (fwrite (sections[i].data, 1, sections[i].size, out) != sections[i].size) {
       ERROR (-7, "Error writing section");
